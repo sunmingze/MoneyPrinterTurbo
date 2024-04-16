@@ -1,5 +1,6 @@
 import os
 import glob
+import pathlib
 import shutil
 
 from fastapi import Request, Depends, Path, BackgroundTasks, UploadFile
@@ -90,7 +91,7 @@ def delete_video(request: Request, task_id: str = Path(..., description="Task ID
 
         sm.state.delete_task(task_id)
         logger.success(f"video deleted: {utils.to_json(task)}")
-        return utils.get_response(200, task)
+        return utils.get_response(200)
 
     raise HttpException(task_id=task_id, status_code=404, message=f"{request_id}: task not found")
 
@@ -171,3 +172,23 @@ async def stream_video(request: Request, file_path: str):
     response.status_code = 206  # Partial Content
 
     return response
+
+
+@router.get("/download/{file_path:path}")
+async def download_video(_: Request, file_path: str):
+    """
+    download video
+    :param _: Request request
+    :param file_path: video file path, eg: /cd1727ed-3473-42a2-a7da-4faafafec72b/final-1.mp4
+    :return: video file
+    """
+    tasks_dir = utils.task_dir()
+    video_path = os.path.join(tasks_dir, file_path)
+    file_path = pathlib.Path(video_path)
+    filename = file_path.stem
+    extension = file_path.suffix
+    headers = {
+        "Content-Disposition": f"attachment; filename={filename}{extension}"
+    }
+    return FileResponse(path=video_path, headers=headers, filename=f"{filename}{extension}",
+                        media_type=f'video/{extension[1:]}')
